@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -42,7 +43,7 @@ func (c TcpStateCollector) Collect(ch chan<- prometheus.Metric) {
 
 	tcp, err := c.fs.NetTCP()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(fmt.Errorf("error getting NetTCP stats: %w", err))
 	}
 
 	for _, t := range tcp {
