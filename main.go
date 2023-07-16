@@ -10,45 +10,35 @@ import (
 	"github.com/prometheus/procfs"
 )
 
-type TcpCoonectionCollector struct {
-	tcpConnectionsTotal  *prometheus.GaugeVec
-	tcpListingPortsTotal *prometheus.GaugeVec
-	fs                   procfs.FS
+var (
+	tcpConnectionsTotal = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tcp_connections_total",
+			Help: "Total number of TCP connections by state and remote address",
+		},
+		[]string{"state", "remote_address", "remote_port"},
+	)
+	tcpListingPortsTotal = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tcp_listening_ports_total",
+			Help: "Total number of TCP listening ports by local address",
+		},
+		[]string{"local_address", "local_port"},
+	)
+)
+
+type TcpStateCollector struct {
+	fs procfs.FS
 }
 
-func NewTcpCoonectionCollector() *TcpCoonectionCollector {
-	fs, err := procfs.NewFS("/proc")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return &TcpCoonectionCollector{
-		tcpConnectionsTotal: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "tcp_connections_total",
-				Help: "Total number of TCP connections by state and remote address",
-			},
-			[]string{"state", "remote_address", "remote_port"},
-		),
-		tcpListingPortsTotal: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "tcp_listening_ports_total",
-				Help: "Total number of TCP listening ports by local address",
-			},
-			[]string{"local_address", "local_port"},
-		),
-		fs: fs,
-	}
+func (c TcpStateCollector) Describe(ch chan<- *prometheus.Desc) {
+	tcpConnectionsTotal.Describe(ch)
+	tcpListingPortsTotal.Describe(ch)
 }
 
-func (c *TcpCoonectionCollector) Describe(ch chan<- *prometheus.Desc) {
-	c.tcpConnectionsTotal.Describe(ch)
-	c.tcpListingPortsTotal.Describe(ch)
-}
-
-func (c *TcpCoonectionCollector) Collect(ch chan<- prometheus.Metric) {
-	c.tcpConnectionsTotal.Reset()
-	c.tcpListingPortsTotal.Reset()
+func (c TcpStateCollector) Collect(ch chan<- prometheus.Metric) {
+	tcpConnectionsTotal.Reset()
+	tcpListingPortsTotal.Reset()
 
 	tcp, err := c.fs.NetTCP()
 	if err != nil {
@@ -61,14 +51,14 @@ func (c *TcpCoonectionCollector) Collect(ch chan<- prometheus.Metric) {
 		remPort := strconv.FormatUint(t.RemPort, 10)
 
 		if state == "LISTEN" {
-			c.tcpListingPortsTotal.WithLabelValues(t.LocalAddr.String(), localPort).Inc()
+			tcpListingPortsTotal.WithLabelValues(t.LocalAddr.String(), localPort).Inc()
 		} else {
-			c.tcpConnectionsTotal.WithLabelValues(state, t.RemAddr.String(), remPort).Inc()
+			tcpConnectionsTotal.WithLabelValues(state, t.RemAddr.String(), remPort).Inc()
 		}
 	}
 
-	c.tcpListingPortsTotal.Collect(ch)
-	c.tcpConnectionsTotal.Collect(ch)
+	tcpConnectionsTotal.Collect(ch)
+	tcpListingPortsTotal.Collect(ch)
 }
 
 func convertState(state int) string {
@@ -101,8 +91,14 @@ func convertState(state int) string {
 }
 
 func main() {
-	collecter := NewTcpCoonectionCollector()
-	prometheus.MustRegister(collecter)
+	fs, err := procfs.NewFS("/proc")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c := TcpStateCollector{fs: fs}
+	prometheus.MustRegister(c)
+
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(":2112", nil))
 }
