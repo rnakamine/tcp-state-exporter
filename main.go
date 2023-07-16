@@ -12,17 +12,17 @@ import (
 )
 
 var (
-	tcpConnectionsTotal = prometheus.NewGaugeVec(
+	tcpConnections = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "tcp_connections_total",
-			Help: "Total number of TCP connections by state and remote address",
+			Name: "tcp_connections",
+			Help: "Current number of TCP connections by state and remote address",
 		},
 		[]string{"state", "remote_address", "remote_port"},
 	)
-	tcpListingPortsTotal = prometheus.NewGaugeVec(
+	tcpListingPorts = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "tcp_listening_ports_total",
-			Help: "Total number of TCP listening ports by local address",
+			Name: "tcp_listening_ports",
+			Help: "Current number of TCP listening ports by local address",
 		},
 		[]string{"local_address", "local_port"},
 	)
@@ -33,13 +33,13 @@ type TcpStateCollector struct {
 }
 
 func (c TcpStateCollector) Describe(ch chan<- *prometheus.Desc) {
-	tcpConnectionsTotal.Describe(ch)
-	tcpListingPortsTotal.Describe(ch)
+	tcpConnections.Describe(ch)
+	tcpListingPorts.Describe(ch)
 }
 
 func (c TcpStateCollector) Collect(ch chan<- prometheus.Metric) {
-	tcpConnectionsTotal.Reset()
-	tcpListingPortsTotal.Reset()
+	tcpConnections.Reset()
+	tcpListingPorts.Reset()
 
 	tcp, err := c.fs.NetTCP()
 	if err != nil {
@@ -52,14 +52,14 @@ func (c TcpStateCollector) Collect(ch chan<- prometheus.Metric) {
 		remPort := strconv.FormatUint(t.RemPort, 10)
 
 		if state == "LISTEN" {
-			tcpListingPortsTotal.WithLabelValues(t.LocalAddr.String(), localPort).Inc()
+			tcpListingPorts.WithLabelValues(t.LocalAddr.String(), localPort).Inc()
 		} else {
-			tcpConnectionsTotal.WithLabelValues(state, t.RemAddr.String(), remPort).Inc()
+			tcpConnections.WithLabelValues(state, t.RemAddr.String(), remPort).Inc()
 		}
 	}
 
-	tcpConnectionsTotal.Collect(ch)
-	tcpListingPortsTotal.Collect(ch)
+	tcpConnections.Collect(ch)
+	tcpListingPorts.Collect(ch)
 }
 
 func convertState(state int) string {
