@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/procfs"
+	flag "github.com/spf13/pflag"
 )
 
 var (
@@ -92,6 +94,20 @@ func convertState(state int) string {
 }
 
 func main() {
+	var port string
+	var help bool
+
+	flag.StringVarP(&port, "port", "p", "2112", "The port number for the metrics server to listen on")
+	flag.BoolVarP(&help, "help", "h", false, "Display this help message")
+	flag.Parse()
+
+	if help {
+		fmt.Println("Usage: your-program [-port port-number] [-help]")
+		fmt.Println("Options:")
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
 	fs, err := procfs.NewFS("/proc")
 	if err != nil {
 		log.Fatal(err)
@@ -101,5 +117,6 @@ func main() {
 	prometheus.MustRegister(c)
 
 	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(":2112", nil))
+	log.Printf("Starting HTTP server on port %s", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
