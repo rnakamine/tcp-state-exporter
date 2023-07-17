@@ -97,7 +97,7 @@ func main() {
 	var port string
 	var help bool
 
-	flag.StringVarP(&port, "port", "p", "2112", "The port number for the metrics server to listen on")
+	flag.StringVarP(&port, "port", "p", "9112", "The port number for the metrics server to listen on")
 	flag.BoolVarP(&help, "help", "h", false, "Display this help message")
 	flag.Parse()
 
