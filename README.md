@@ -5,7 +5,7 @@ TCP State Exporter is a simple service written in Go that exposes metrics about 
 ## Usage
 
 ```sh
-./tcpstateexporter --port <port-number>
+./tcp-state-exporter --port <port-number>
 ```
 
 Use the `-p` or `--port` flag to specify the port number the metrics server should listen on. The default is `9112`.
