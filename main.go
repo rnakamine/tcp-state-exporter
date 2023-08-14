@@ -17,7 +17,7 @@ import (
 var (
 	tcpConnections  *prometheus.GaugeVec
 	tcpListingPorts *prometheus.GaugeVec
-	dynamicLabels   map[string]string
+	dynamicLabels   prometheus.Labels
 )
 
 func init() {
@@ -47,9 +47,9 @@ func init() {
 	)
 }
 
-func getDynamicLabels() map[string]string {
+func getDynamicLabels() prometheus.Labels {
 	prefix := "EXPORTER_LABEL_"
-	labels := make(map[string]string)
+	labels := make(prometheus.Labels)
 
 	for _, env := range os.Environ() {
 		pair := strings.SplitN(env, "=", 2)
