@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -14,21 +15,52 @@ import (
 )
 
 var (
+	tcpConnections  *prometheus.GaugeVec
+	tcpListingPorts *prometheus.GaugeVec
+	dynamicLabels   map[string]string
+)
+
+func init() {
+	dynamicLabels = getDynamicLabels()
+
+	dynamicLabelNames := []string{}
+	for k := range dynamicLabels {
+		dynamicLabelNames = append(dynamicLabelNames, k)
+	}
+
+	tcpConnectionsLabels := append([]string{"state", "remote_address", "remote_port"}, dynamicLabelNames...)
 	tcpConnections = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "tcp_connections",
 			Help: "Current number of TCP connections by state and remote address",
 		},
-		[]string{"state", "remote_address", "remote_port"},
+		tcpConnectionsLabels,
 	)
+
+	tcpListingPortsLabels := append([]string{"local_address", "local_port"}, dynamicLabelNames...)
 	tcpListingPorts = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "tcp_listening_ports",
 			Help: "Current number of TCP listening ports by local address",
 		},
-		[]string{"local_address", "local_port"},
+		tcpListingPortsLabels,
 	)
-)
+}
+
+func getDynamicLabels() map[string]string {
+	prefix := "EXPORTER_LABEL_"
+	labels := make(map[string]string)
+
+	for _, env := range os.Environ() {
+		pair := strings.SplitN(env, "=", 2)
+		if strings.HasPrefix(pair[0], prefix) {
+			key := strings.TrimPrefix(pair[0], prefix)
+			labels[key] = pair[1]
+		}
+	}
+
+	return labels
+}
 
 type TcpStateCollector struct {
 	fs procfs.FS
@@ -49,14 +81,22 @@ func (c TcpStateCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	for _, t := range tcp {
-		state := convertState(int(t.St))
-		localPort := strconv.FormatUint(t.LocalPort, 10)
-		remPort := strconv.FormatUint(t.RemPort, 10)
+		labels := make(prometheus.Labels)
 
+		for k, v := range dynamicLabels {
+			labels[k] = v
+		}
+
+		state := convertState(int(t.St))
 		if state == "LISTEN" {
-			tcpListingPorts.WithLabelValues(t.LocalAddr.String(), localPort).Inc()
+			labels["local_address"] = t.LocalAddr.String()
+			labels["local_port"] = strconv.FormatUint(t.LocalPort, 10)
+			tcpListingPorts.With(labels).Inc()
 		} else {
-			tcpConnections.WithLabelValues(state, t.RemAddr.String(), remPort).Inc()
+			labels["state"] = state
+			labels["remote_address"] = t.RemAddr.String()
+			labels["remote_port"] = strconv.FormatUint(t.RemPort, 10)
+			tcpConnections.With(labels).Inc()
 		}
 	}
 

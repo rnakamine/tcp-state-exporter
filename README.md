@@ -12,6 +12,10 @@ Use the `-p` or `--port` flag to specify the port number the metrics server shou
 
 The `-h` or `--help` flag can be used to display a help message and exits.
 
+### Dynamic Labels
+
+The TCP State Exporter allows for the addition of dynamic labels to the metrics through environment variables that follow the `EXPORTER_LABEL_` prefix. For instance, if you set an environment variable named `EXPORTER_LABEL_app_name`, this will append a `app_name` label to the metrics with its value set from the environment variable.
+
 ## Example Output
 
 When you navigate to `http://localhost:<port-number>/metrics`, you will see output similar to the following:
@@ -28,3 +32,5 @@ tcp_connections{remote_address="192.0.2.3", remote_port="34567", state="TIME_WAI
 tcp_listening_ports{local_address="0.0.0.0", local_port="22"} 1
 tcp_listening_ports{local_address="0.0.0.0", local_port="80"} 1
 ```
+
+With the `EXPORTER_LABEL_app_name` environment variable set as illustrated earlier, your metrics output would also include the `app_name` label.
